@@ -155,7 +155,7 @@ struct default_daily_file_name_calculator
     {
         std::tm tm = spdlog::details::os::localtime();
         std::conditional<std::is_same<filename_t::value_type, char>::value, fmt::MemoryWriter, fmt::WMemoryWriter>::type w;
-        w.write(SPDLOG_FILENAME_T("{}_{:04d}-{:02d}-{:02d}_{:02d}-{:02d}"), basename, tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min);
+        w.write(SPDLOG_FILENAME_T("{}_{:04d}-{:02d}-{:02d}_{:02d}-{:02d}.log"), basename, tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min);
         return w.str();
     }
 };
@@ -193,16 +193,21 @@ public:
         if (rotation_hour < 0 || rotation_hour > 23 || rotation_minute < 0 || rotation_minute > 59)
             throw spdlog_ex("daily_file_sink: Invalid rotation time in ctor");
         _rotation_tp = _next_rotation_tp();
-        _file_helper.open(FileNameCalc::calc_filename(_base_filename));
+		_current_filename = FileNameCalc::calc_filename(_base_filename);
+        _file_helper.open(_current_filename);
     }
 
-
+	filename_t GetCurrentFileName()
+	{
+		return _current_filename;
+	}
 protected:
     void _sink_it(const details::log_msg& msg) override
     {
         if (std::chrono::system_clock::now() >= _rotation_tp)
         {
-            _file_helper.open(FileNameCalc::calc_filename(_base_filename));
+			_current_filename = FileNameCalc::calc_filename(_base_filename);
+            _file_helper.open(_current_filename);
             _rotation_tp = _next_rotation_tp();
         }
         _file_helper.write(msg);
@@ -229,6 +234,7 @@ private:
             return std::chrono::system_clock::time_point(rotation_time + std::chrono::hours(24));
     }
 
+	filename_t _current_filename;
     filename_t _base_filename;
     int _rotation_h;
     int _rotation_m;
